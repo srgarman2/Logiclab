@@ -80,34 +80,34 @@ function buildPrompt(category: QuizCategory | 'all', dateStr: string): string {
 
   const instruction = categoryInstructions[category] || categoryInstructions['all']
 
-  return `You are generating LSAT Logical Reasoning practice questions for date ${seed}.
+  return `You are generating a single HARD LSAT Logical Reasoning question for date ${seed}.
 
 Category: ${CATEGORY_LABELS[category] || category}
 Instructions: ${instruction}
 
-Generate exactly 10 questions in this JSON format (no markdown, just raw JSON array):
+Generate exactly 1 question in this JSON format (no markdown, just a raw JSON array with one item):
 [
   {
     "id": "daily-${dateStr}-1",
     "category": "${category === 'all' ? 'flaw-detection' : category}",
-    "difficulty": 1,
+    "difficulty": 3,
     "question": "...",
     "options": ["A. ...", "B. ...", "C. ...", "D. ..."],
     "correctIndex": 0,
     "explanation": "..."
-  },
-  ...
+  }
 ]
 
 Requirements:
-- Exactly 10 questions: questions 1-3 difficulty 1 (easy), questions 4-7 difficulty 2 (medium), questions 8-10 difficulty 3 (hard)
+- Exactly 1 question, difficulty 3 (hard)
+- This must be the hardest possible LSAT question for this category — graduate-level reasoning
+- Use a realistic argumentative passage (3-5 sentences) with subtle logical traps
 - Each question has EXACTLY 4 options (A, B, C, D)
 - correctIndex is 0-3 (0=A, 1=B, 2=C, 3=D)
-- Options must be plausible — wrong answers should reflect common LSAT traps
-- Explanations must: (1) explain WHY the correct answer is right, (2) explain the most tempting wrong answer's flaw
-- Questions must be original and varied — no repetition
-- Hard questions (difficulty 3) must test sophisticated reasoning that would appear on an actual LSAT
-- For ${category === 'all' ? 'mixed' : category} questions, use realistic argumentative passages (2-4 sentences)
+- All 4 options must be highly plausible — each wrong answer should exploit a specific LSAT trap
+- Explanation must: (1) explain WHY the correct answer is right, (2) explain why each wrong answer fails
+- Use formal logic where applicable: contrapositives, quantifier chains, biconditionals
+- The question must be original and would appear on an actual scored LSAT section
 - Do NOT include question numbers or letters in the question text itself
 
 Return ONLY the JSON array. No preamble, no explanation, no markdown code blocks.`
@@ -196,9 +196,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     questions = JSON.parse(jsonText) as QuizQuestion[]
 
     // Validate shape
-    if (!Array.isArray(questions) || questions.length < 5) {
+    if (!Array.isArray(questions) || questions.length < 1) {
       throw new Error(`Expected array of questions, got: ${typeof questions}`)
     }
+    // Take only the first question (daily is 1 hard question)
+    questions = [questions[0]]
 
     // Ensure IDs are unique per day
     questions = questions.map((q, i) => ({

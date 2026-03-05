@@ -130,7 +130,7 @@ function DailyCard() {
             </p>
           ) : (
             <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '2px 0 0' }}>
-              10 questions · Same for everyone today
+              1 hard question · Same for everyone today
             </p>
           )}
         </div>

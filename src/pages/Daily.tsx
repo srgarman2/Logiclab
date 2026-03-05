@@ -60,7 +60,8 @@ function buildShareText(
   const catLabel = CATEGORY_LABELS[category ?? ''] ?? category ?? ''
   const num = challengeNumber ? `#${challengeNumber}` : ''
 
-  return `LogicLab Daily ${num} 📅\n${catLabel} · ${(score ?? 0).toLocaleString()} pts\n${grid}\n🔥 Best streak: ×${maxStreak ?? 0}\nhttps://logiclab.vercel.app/daily`
+  const result = answers[0]?.correct ? '✅ Correct' : '❌ Incorrect'
+  return `LogicLab Daily ${num} 📅\n${catLabel} · Hard\n${result} · ${(score ?? 0).toLocaleString()} pts\nhttps://logiclabs-pi.vercel.app/daily`
 }
 
 // ── Countdown to midnight UTC ──────────────────────────────────────────────────
@@ -118,15 +119,15 @@ function CompletedView() {
       style={{ ...panel, maxWidth: 480, width: '100%', textAlign: 'center', display: 'flex', flexDirection: 'column', gap: 20 }}
     >
       <div style={{ fontSize: 48 }}>
-        {correct >= 9 ? '🏆' : correct >= 7 ? '🎯' : correct >= 5 ? '📚' : '💪'}
+        {correct === 1 ? '🏆' : '💪'}
       </div>
 
       <div>
         <h2 style={{ fontSize: '1.5rem', fontWeight: 800, color: '#F1F5F9', margin: '0 0 6px', letterSpacing: '-0.02em' }}>
-          Daily Complete!
+          {correct === 1 ? '✅ Correct!' : '❌ Not quite'}
         </h2>
         <p style={{ fontSize: '0.875rem', color: '#6B7280', margin: 0 }}>
-          {correct}/10 correct
+          {correct === 1 ? 'You got today\'s hard question right.' : 'Better luck tomorrow!'}
         </p>
       </div>
 
@@ -448,10 +449,10 @@ export function Daily() {
             <div style={{ fontSize: 40 }}>🧠</div>
             <div>
               <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#F1F5F9', margin: '0 0 8px' }}>
-                10 Questions · 30s Each
+                1 Hard Question · 30s
               </h3>
               <p style={{ fontSize: '0.8rem', color: '#6B7280', margin: 0, lineHeight: 1.6 }}>
-                All players see the same questions today. Complete once — results are final.
+                One graduate-level LSAT question — same for everyone today. Complete once — results are final.
                 {!user && ' Sign in to save your score to the leaderboard.'}
               </p>
             </div>
