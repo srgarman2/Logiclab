@@ -211,6 +211,16 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
 
   submitCompletion: async () => {
     const { todayDate, score, maxStreak, answers } = get()
+
+    // Always save locally so CompletedView shows the right score
+    set({
+      alreadyCompleted: true,
+      completionScore: score,
+      completionMaxStreak: maxStreak,
+      completionAnswers: answers,
+    })
+
+    // Optionally persist to Supabase if signed in
     const { user } = useAuthStore.getState()
     if (!user || !todayDate) return
 
@@ -222,15 +232,8 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
         max_streak: maxStreak,
         answers,
       })
-
-      set({
-        alreadyCompleted: true,
-        completionScore: score,
-        completionMaxStreak: maxStreak,
-        completionAnswers: answers,
-      })
     } catch (err) {
-      console.error('Failed to save daily completion:', err)
+      console.error('Failed to save daily completion to Supabase:', err)
     }
   },
 
