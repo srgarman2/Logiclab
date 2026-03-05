@@ -82,27 +82,48 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
   fetchToday: async () => {
     set({ loading: true, error: null })
 
-    const { session } = useAuthStore.getState()
-    const headers: Record<string, string> = { 'Content-Type': 'application/json' }
-    if (session?.access_token) {
-      headers['Authorization'] = `Bearer ${session.access_token}`
-    }
-
     try {
-      const res = await fetch('/api/daily-status', { headers })
+      // Call generate-daily directly — it returns cached results if already generated
+      const res = await fetch('/api/generate-daily')
       if (!res.ok) throw new Error(`HTTP ${res.status}`)
       const data = await res.json()
 
+      // Compute challenge number (days since 2025-01-01)
+      const launchDate = new Date('2025-01-01')
+      const today = new Date(data.date + 'T12:00:00Z')
+      const challengeNumber = Math.floor(
+        (today.getTime() - launchDate.getTime()) / (1000 * 60 * 60 * 24)
+      ) + 1
+
+      // Check if user already completed today (via Supabase)
+      let completed = false
+      let completion = null
+      const { user } = useAuthStore.getState()
+      if (user) {
+        try {
+          const { data: comp } = await supabase
+            .from('daily_completions')
+            .select('score, max_streak, answers, completed_at')
+            .eq('user_id', user.id)
+            .eq('challenge_date', data.date)
+            .maybeSingle()
+          if (comp) {
+            completed = true
+            completion = comp
+          }
+        } catch { /* table might not exist yet — ignore */ }
+      }
+
       set({
         todayDate: data.date,
-        challengeNumber: data.challengeNumber,
+        challengeNumber,
         todayCategory: data.category as QuizCategory | 'all',
         questions: data.questions ?? [],
         loading: false,
-        alreadyCompleted: data.completed ?? false,
-        completionScore: data.completion?.score ?? null,
-        completionMaxStreak: data.completion?.max_streak ?? null,
-        completionAnswers: data.completion?.answers ?? [],
+        alreadyCompleted: completed,
+        completionScore: completion?.score ?? null,
+        completionMaxStreak: completion?.max_streak ?? null,
+        completionAnswers: completion?.answers ?? [],
       })
     } catch (err) {
       console.error('Failed to fetch daily challenge:', err)
