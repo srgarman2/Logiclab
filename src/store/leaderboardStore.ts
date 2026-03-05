@@ -44,10 +44,13 @@ type LeaderboardState = {
 // ── Helpers ────────────────────────────────────────────────────────────────────
 
 const CATEGORY_LABELS: Record<QuizCategory, string> = {
-  'indicator-words': 'Indicator Words',
-  'formal-logic': 'Formal Logic',
+  'indicator-words':   'Indicator Words',
+  'formal-logic':      'Formal Logic',
   'argument-analysis': 'Argument Analysis',
-  'flaw-detection': 'Flaw Detection',
+  'flaw-detection':    'Flaw Detection',
+  'assumption':        'Assumption',
+  'strengthen-weaken': 'Strengthen/Weaken',
+  'inference':         'Inference',
 }
 
 function topCategoryFromMastery(

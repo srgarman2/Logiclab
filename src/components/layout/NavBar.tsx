@@ -40,6 +40,21 @@ export function NavBar() {
               Quiz
             </NavLink>
             <NavLink
+              to="/daily"
+              style={({ isActive }) => ({
+                padding: '0.375rem 0.875rem',
+                borderRadius: '0.5rem',
+                fontSize: '0.8125rem',
+                fontWeight: 500,
+                textDecoration: 'none',
+                transition: 'background 0.15s, color 0.15s',
+                backgroundColor: isActive ? '#4F46E5' : 'transparent',
+                color: isActive ? '#fff' : '#9CA3AF',
+              })}
+            >
+              📅 Daily
+            </NavLink>
+            <NavLink
               to="/leaderboard"
               style={({ isActive }) => ({
                 padding: '0.375rem 0.875rem',

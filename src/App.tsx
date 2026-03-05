@@ -4,6 +4,7 @@ import { NavBar } from './components/layout/NavBar'
 import { Home } from './pages/Home'
 import { Quiz } from './pages/Quiz'
 import { Leaderboard } from './pages/Leaderboard'
+import { Daily } from './pages/Daily'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './store/authStore'
 import { useProgressStore } from './store/progressStore'
@@ -52,6 +53,7 @@ export default function App() {
           <Route path="/" element={<Home />} />
           <Route path="/quiz" element={<Quiz />} />
           <Route path="/leaderboard" element={<Leaderboard />} />
+          <Route path="/daily" element={<Daily />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </main>

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useProgressStore } from '../store/progressStore'
@@ -6,18 +6,23 @@ import { useAuthStore } from '../store/authStore'
 import { useQuizStore } from '../store/quizStore'
 import { quizQuestions, type QuizCategory } from '../data/quizQuestions'
 import { SignInModal } from '../components/auth/SignInModal'
+import { useDailyStore } from '../store/dailyStore'
 
-// Total question counts per category (matches the full expanded bank)
+// Total question counts per category (static bank)
 const CATEGORY_TOTALS: Record<QuizCategory, number> = {
   'indicator-words':   35,
   'formal-logic':      40,
   'argument-analysis': 35,
   'flaw-detection':    40,
+  'assumption':        30,
+  'strengthen-weaken': 30,
+  'inference':         30,
 }
 
 function MasteryBar({ category, color }: { category: QuizCategory; color: string }) {
   const { categoryMastery } = useProgressStore()
   const entry = categoryMastery[category]
+  if (!entry) return null
   const pct = entry.attempted === 0 ? 0 : Math.min(entry.correct / CATEGORY_TOTALS[category], 1) * 100
   return (
     <div style={{ marginTop: 8, paddingInline: 2 }}>
@@ -43,12 +48,110 @@ function MasteryBar({ category, color }: { category: QuizCategory; color: string
 }
 
 const CATEGORIES: { value: QuizCategory | 'all'; label: string; color: string; icon: string }[] = [
-  { value: 'all',               label: 'All Topics',        color: '#6366F1', icon: '∀' },
-  { value: 'indicator-words',   label: 'Indicator Words',   color: '#3B82F6', icon: '→' },
-  { value: 'formal-logic',      label: 'Formal Logic',      color: '#A855F7', icon: '⊢' },
-  { value: 'argument-analysis', label: 'Argument Analysis', color: '#EC4899', icon: '§' },
-  { value: 'flaw-detection',    label: 'Flaw Detection',    color: '#22C55E', icon: '⚠' },
+  { value: 'all',               label: 'All Topics',         color: '#6366F1', icon: '∀' },
+  { value: 'indicator-words',   label: 'Indicator Words',    color: '#3B82F6', icon: '→' },
+  { value: 'formal-logic',      label: 'Formal Logic',       color: '#A855F7', icon: '⊢' },
+  { value: 'argument-analysis', label: 'Argument Analysis',  color: '#EC4899', icon: '§' },
+  { value: 'flaw-detection',    label: 'Flaw Detection',     color: '#22C55E', icon: '⚠' },
+  { value: 'assumption',        label: 'Assumption',         color: '#A855F7', icon: '?' },
+  { value: 'strengthen-weaken', label: 'Strengthen/Weaken',  color: '#F97316', icon: '⇅' },
+  { value: 'inference',         label: 'Inference',          color: '#3B82F6', icon: '∴' },
 ]
+
+const DAILY_CATEGORY_COLORS: Record<string, string> = {
+  'assumption':        '#A855F7',
+  'strengthen-weaken': '#22C55E',
+  'inference':         '#3B82F6',
+  'flaw-detection':    '#F97316',
+  'formal-logic':      '#EC4899',
+  'argument-analysis': '#EAB308',
+  'indicator-words':   '#6366F1',
+  'all':               '#6366F1',
+}
+
+const DAILY_CATEGORY_LABELS: Record<string, string> = {
+  'assumption':        'Assumption',
+  'strengthen-weaken': 'Strengthen & Weaken',
+  'inference':         'Inference',
+  'flaw-detection':    'Flaw Detection',
+  'formal-logic':      'Formal Logic',
+  'argument-analysis': 'Argument Analysis',
+  'indicator-words':   'Indicator Words',
+  'all':               'All Topics',
+}
+
+function DailyCard() {
+  const {
+    loading, todayCategory, challengeNumber,
+    alreadyCompleted, completionScore, completionAnswers,
+  } = useDailyStore()
+
+  if (loading) return null
+
+  const catColor = DAILY_CATEGORY_COLORS[todayCategory ?? ''] ?? '#6366F1'
+  const catLabel = DAILY_CATEGORY_LABELS[todayCategory ?? ''] ?? (todayCategory ?? 'Daily Challenge')
+  const correct = completionAnswers.filter((a) => a.correct).length
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 8 }}
+      animate={{ opacity: 1, y: 0 }}
+      style={{
+        backgroundColor: 'rgba(99,102,241,0.05)',
+        border: '1px solid rgba(99,102,241,0.2)',
+        borderRadius: '0.875rem',
+        padding: '1rem 1.25rem',
+        display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+        gap: 16, flexWrap: 'wrap',
+      }}
+    >
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 0 }}>
+        <span style={{ fontSize: 24 }}>📅</span>
+        <div>
+          <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+            <span style={{ fontSize: '0.875rem', fontWeight: 700, color: '#E2E8F0' }}>
+              Daily Challenge{challengeNumber ? ` #${challengeNumber}` : ''}
+            </span>
+            {todayCategory && (
+              <span style={{
+                fontSize: '0.6rem', fontWeight: 700, color: catColor,
+                backgroundColor: catColor + '18', border: `1px solid ${catColor}35`,
+                borderRadius: '0.25rem', padding: '0.1rem 0.4rem',
+                textTransform: 'uppercase', letterSpacing: '0.05em',
+              }}>
+                {catLabel}
+              </span>
+            )}
+          </div>
+          {alreadyCompleted ? (
+            <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '2px 0 0' }}>
+              {correct}/10 correct · {(completionScore ?? 0).toLocaleString()} pts
+              &nbsp;{'🟢'.repeat(correct)}{'🔴'.repeat(10 - correct)}
+            </p>
+          ) : (
+            <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '2px 0 0' }}>
+              10 questions · Same for everyone today
+            </p>
+          )}
+        </div>
+      </div>
+      <Link to="/daily" style={{ textDecoration: 'none' }}>
+        <button
+          style={{
+            padding: '0.4rem 1rem', borderRadius: '0.5rem', fontSize: '0.8125rem',
+            fontWeight: 600, cursor: 'pointer', whiteSpace: 'nowrap',
+            backgroundColor: alreadyCompleted ? 'rgba(34,197,94,0.1)' : 'rgba(99,102,241,0.12)',
+            border: alreadyCompleted ? '1px solid rgba(34,197,94,0.3)' : '1px solid rgba(99,102,241,0.3)',
+            color: alreadyCompleted ? '#34D399' : '#818CF8',
+            transition: 'all 0.15s',
+          }}
+        >
+          {alreadyCompleted ? '✓ View Results' : 'Play →'}
+        </button>
+      </Link>
+    </motion.div>
+  )
+}
 
 const card: React.CSSProperties = {
   backgroundColor: '#0c1424',
@@ -61,6 +164,9 @@ export function Home() {
   const { user } = useAuthStore()
   const { start } = useQuizStore()
   const [signInOpen, setSignInOpen] = useState(false)
+  const { fetchToday } = useDailyStore()
+
+  useEffect(() => { fetchToday() }, [fetchToday])
 
   const stats = [
     { label: 'Best Score',     value: quizHighScore.toLocaleString(), color: '#818CF8' },
@@ -95,6 +201,9 @@ export function Home() {
             </button>
           </Link>
         </div>
+
+        {/* Daily Challenge card */}
+        <DailyCard />
 
         {/* Sign-in nudge — only when signed out */}
         {!user && (

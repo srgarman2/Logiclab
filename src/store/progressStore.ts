@@ -62,6 +62,9 @@ export const useProgressStore = create<ProgressState>()(
         'formal-logic':      { correct: 0, attempted: 0 },
         'argument-analysis': { correct: 0, attempted: 0 },
         'flaw-detection':    { correct: 0, attempted: 0 },
+        'assumption':        { correct: 0, attempted: 0 },
+        'strengthen-weaken': { correct: 0, attempted: 0 },
+        'inference':         { correct: 0, attempted: 0 },
       },
       recordAnswers: (answers) =>
         set((state) => {
