@@ -27,7 +27,7 @@ type DailyState = {
   score: number
   streak: number
   maxStreak: number
-  timeLeft: number
+  timeElapsed: number              // counts up from 0, no time limit
   selectedAnswer: number | null
   answers: DailyAnswerResult[]
 
@@ -73,7 +73,7 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
   score: 0,
   streak: 0,
   maxStreak: 0,
-  timeLeft: 30,
+  timeElapsed: 0,
   selectedAnswer: null,
   answers: [],
 
@@ -151,7 +151,7 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
       score: 0,
       streak: 0,
       maxStreak: 0,
-      timeLeft: 30,
+      timeElapsed: 0,
       selectedAnswer: null,
       answers: [],
       quizStartedAt: Date.now(),
@@ -162,12 +162,13 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
   // ── selectAnswer ─────────────────────────────────────────────────────────────
 
   selectAnswer: (index: number) => {
-    const { currentIndex, questions, score, streak, maxStreak, timeLeft, answers, quizStartedAt } = get()
+    const { currentIndex, questions, score, streak, maxStreak, timeElapsed, answers, quizStartedAt } = get()
     const question = questions[currentIndex]
     if (!question || get().selectedAnswer !== null) return
 
     const isCorrect = index === question.correctIndex
-    const speedBonus = timeLeft >= SPEED_THRESHOLD ? SPEED_BONUS : 0
+    // Speed bonus for answering within SPEED_THRESHOLD seconds (count-up timer)
+    const speedBonus = timeElapsed < SPEED_THRESHOLD ? SPEED_BONUS : 0
     const newStreak = isCorrect ? streak + 1 : 0
     const streakMult = 1 + Math.min(streak, 4) * 0.25
     const points = isCorrect
@@ -196,34 +197,16 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
     if (currentIndex + 1 >= questions.length) {
       set({ phase: 'finished', selectedAnswer: null })
     } else {
-      set({ currentIndex: currentIndex + 1, selectedAnswer: null, timeLeft: 30 })
+      set({ currentIndex: currentIndex + 1, selectedAnswer: null, timeElapsed: 0 })
     }
   },
 
   // ── tick ─────────────────────────────────────────────────────────────────────
+  // Count UP — no time limit on the daily challenge so players can read carefully.
 
   tick: () => {
-    const { timeLeft, currentIndex, questions, answers, quizStartedAt } = get()
     if (get().selectedAnswer !== null) return
-
-    if (timeLeft <= 1) {
-      // Timeout — mark as timed out, move on
-      const question = questions[currentIndex]
-      if (!question) return
-      const newAnswers: DailyAnswerResult[] = [...answers, { correct: false, timedOut: true }]
-      const isLast = currentIndex + 1 >= questions.length
-      const solveTimeMs = quizStartedAt ? Date.now() - quizStartedAt : 30000
-      set({
-        selectedAnswer: -1,
-        streak: 0,
-        answers: newAnswers,
-        solveTimeMs,
-        phase: isLast ? 'finished' : 'playing',
-        ...(isLast ? {} : { currentIndex: currentIndex + 1, timeLeft: 30 }),
-      })
-    } else {
-      set({ timeLeft: timeLeft - 1 })
-    }
+    set((s) => ({ timeElapsed: s.timeElapsed + 1 }))
   },
 
   // ── submitCompletion ─────────────────────────────────────────────────────────
@@ -267,7 +250,7 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
       score: 0,
       streak: 0,
       maxStreak: 0,
-      timeLeft: 30,
+      timeElapsed: 0,
       selectedAnswer: null,
       answers: [],
       quizStartedAt: null,

@@ -3,7 +3,6 @@ import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDailyStore, type DailyAnswerResult } from '../store/dailyStore'
 import { useAuthStore } from '../store/authStore'
-import { QuizTimer } from '../components/quiz/QuizTimer'
 
 // ── Style constants ────────────────────────────────────────────────────────────
 
@@ -291,18 +290,25 @@ function CompletedView() {
 
 // ── Quiz playing view ──────────────────────────────────────────────────────────
 
+// Format elapsed seconds as M:SS or just Ss
+function fmtElapsed(secs: number): string {
+  if (secs < 60) return `${secs}s`
+  const m = Math.floor(secs / 60)
+  const s = secs % 60
+  return `${m}:${String(s).padStart(2, '0')}`
+}
+
 function PlayingView() {
   const {
-    questions, currentIndex, score, streak, maxStreak,
-    timeLeft, selectedAnswer, phase,
+    questions, currentIndex, score, streak,
+    timeElapsed, selectedAnswer, phase,
     selectAnswer, nextQuestion, tick,
   } = useDailyStore()
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const question = questions[currentIndex]
   const isAnswered = selectedAnswer !== null
-  const isTimeout = selectedAnswer === -1
-  const isCorrect = !isTimeout && selectedAnswer === question?.correctIndex
+  const isCorrect = isAnswered && selectedAnswer === question?.correctIndex
 
   // Timer
   useEffect(() => {
@@ -344,7 +350,20 @@ function PlayingView() {
           </div>
         </div>
 
-        <QuizTimer timeLeft={timeLeft} totalTime={30} />
+        {/* Stopwatch — counts up, no time limit */}
+        <div style={{ textAlign: 'center' }}>
+          <div style={{
+            fontSize: '1.5rem', fontWeight: 800, fontVariantNumeric: 'tabular-nums',
+            color: isAnswered ? '#374151' : '#4B5563',
+            fontFamily: 'system-ui, monospace',
+            minWidth: 56,
+          }}>
+            {fmtElapsed(timeElapsed)}
+          </div>
+          <div style={{ fontSize: '0.6rem', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: 2 }}>
+            elapsed
+          </div>
+        </div>
 
         <div style={{ textAlign: 'right' }}>
           <div style={{ fontSize: '0.875rem', color: '#4B5563', fontWeight: 600 }}>{currentIndex + 1} / {questions.length}</div>
@@ -414,8 +433,8 @@ function PlayingView() {
               }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>
-                <span style={{ fontWeight: 700, fontSize: '0.9rem', color: isTimeout ? '#F97316' : isCorrect ? '#34D399' : '#F87171' }}>
-                  {isTimeout ? '⏱ Time\'s up!' : isCorrect ? '✓ Correct!' : '✗ Incorrect'}
+                <span style={{ fontWeight: 700, fontSize: '0.9rem', color: isCorrect ? '#34D399' : '#F87171' }}>
+                  {isCorrect ? '✓ Correct!' : '✗ Incorrect'}
                 </span>
               </div>
               <p style={{ fontSize: '0.8rem', color: '#94A3B8', lineHeight: 1.65, margin: 0 }}>
@@ -548,10 +567,10 @@ export function Daily() {
             <div style={{ fontSize: 40 }}>🧠</div>
             <div>
               <h3 style={{ fontSize: '1.125rem', fontWeight: 700, color: '#F1F5F9', margin: '0 0 8px' }}>
-                1 Hard Question · 30s
+                1 Hard Question · No Time Limit
               </h3>
               <p style={{ fontSize: '0.8rem', color: '#6B7280', margin: 0, lineHeight: 1.6 }}>
-                One graduate-level LSAT question — same for everyone today. Complete once — results are final.
+                One graduate-level LSAT question — same for everyone today. Take your time reading. Complete once — results are final.
                 {!user && ' Sign in to save your score to the leaderboard.'}
               </p>
             </div>
