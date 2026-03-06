@@ -107,10 +107,37 @@ function CompletedView() {
   } = useDailyStore()
   const [copied, setCopied] = useState(false)
   const countdown = useCountdown()
+
+  // Fetch leaderboard stats for the "vs average" comparison
+  const [avgTimeMs, setAvgTimeMs] = useState<number | null>(null)
+  const [correctCount, setCorrectCount] = useState<number | null>(null)
+  const [totalCount, setTotalCount] = useState<number | null>(null)
+
+  useEffect(() => {
+    fetch('/api/daily-leaderboard')
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => {
+        if (!data?.stats) return
+        setAvgTimeMs(data.stats.avgSolveTimeMs)
+        setCorrectCount(data.stats.correctCount)
+        setTotalCount(data.stats.totalCompletions)
+      })
+      .catch(() => { /* non-critical */ })
+  }, [])
+
   const catColor = CATEGORY_COLORS[todayCategory ?? ''] ?? '#6366F1'
   const catLabel = CATEGORY_LABELS[todayCategory ?? ''] ?? todayCategory
 
   const correct = completionAnswers.filter((a) => a.correct).length
+
+  // Compute vs-average label (only for correct solvers with a recorded time)
+  const vsAvgLabel = (() => {
+    if (!correct || completionSolveTimeMs == null || avgTimeMs == null) return null
+    const diff = completionSolveTimeMs - avgTimeMs
+    if (diff < 0) return { text: `${formatSolveTime(-diff)} faster than avg`, color: '#34D399' }
+    if (diff > 0) return { text: `${formatSolveTime(diff)} slower than avg`, color: '#F87171' }
+    return { text: 'exactly avg time', color: '#FCD34D' }
+  })()
 
   const handleShare = () => {
     const text = buildShareText(
@@ -142,18 +169,61 @@ function CompletedView() {
         </p>
       </div>
 
-      {/* Stats */}
+      {/* Stats: Score | Solve Time */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
-        {[
-          { label: 'Score', value: (completionScore ?? 0).toLocaleString(), color: '#818CF8' },
-          { label: 'Solve Time', value: formatSolveTime(completionSolveTimeMs), color: '#FCD34D' },
-        ].map((s) => (
-          <div key={s.label} style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '0.75rem', padding: '1rem' }}>
-            <div style={{ fontSize: '1.75rem', fontWeight: 800, color: s.color }}>{s.value}</div>
-            <div style={{ fontSize: '0.7rem', color: '#374151', marginTop: 4 }}>{s.label}</div>
+        <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '0.75rem', padding: '1rem' }}>
+          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#818CF8' }}>
+            {(completionScore ?? 0).toLocaleString()}
           </div>
-        ))}
+          <div style={{ fontSize: '0.7rem', color: '#374151', marginTop: 4 }}>Score</div>
+        </div>
+
+        <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '0.75rem', padding: '1rem' }}>
+          <div style={{ fontSize: '1.75rem', fontWeight: 800, color: '#FCD34D' }}>
+            {formatSolveTime(completionSolveTimeMs)}
+          </div>
+          <div style={{ fontSize: '0.7rem', color: '#374151', marginTop: 4 }}>Your Time</div>
+        </div>
       </div>
+
+      {/* Vs-average comparison — appears once stats load */}
+      {(vsAvgLabel || avgTimeMs != null) && (
+        <div style={{
+          backgroundColor: '#0f172a', border: '1px solid #1e293b',
+          borderRadius: '0.75rem', padding: '0.875rem 1rem',
+          display: 'flex', flexDirection: 'column', gap: 6,
+        }}>
+          <div style={{ fontSize: '0.65rem', color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+            vs. Today's Players
+          </div>
+          <div style={{ display: 'flex', justifyContent: 'space-around', alignItems: 'center', gap: 12 }}>
+            <div>
+              <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#94A3B8' }}>
+                {formatSolveTime(avgTimeMs)}
+              </div>
+              <div style={{ fontSize: '0.65rem', color: '#374151', marginTop: 2 }}>Avg correct time</div>
+            </div>
+            {vsAvgLabel && (
+              <div style={{
+                fontSize: '0.75rem', fontWeight: 700, color: vsAvgLabel.color,
+                backgroundColor: vsAvgLabel.color + '15',
+                border: `1px solid ${vsAvgLabel.color}30`,
+                borderRadius: '0.375rem', padding: '0.25rem 0.625rem',
+              }}>
+                {vsAvgLabel.text}
+              </div>
+            )}
+            {totalCount != null && correctCount != null && (
+              <div>
+                <div style={{ fontSize: '1.1rem', fontWeight: 800, color: '#94A3B8' }}>
+                  {correctCount}/{totalCount}
+                </div>
+                <div style={{ fontSize: '0.65rem', color: '#374151', marginTop: 2 }}>got it right</div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* Emoji grid */}
       <div style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '0.75rem', padding: '1rem' }}>
@@ -206,7 +276,7 @@ function CompletedView() {
               color: '#FCD34D', transition: 'all 0.15s',
             }}
           >
-            🏆 View Daily Leaderboard
+            ⚡ View Speed Rankings
           </button>
         </Link>
       </div>

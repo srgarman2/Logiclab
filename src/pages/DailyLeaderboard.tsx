@@ -15,6 +15,12 @@ type LeaderboardEntry = {
   completedAt: string
 }
 
+type LeaderboardStats = {
+  totalCompletions: number
+  correctCount: number
+  avgSolveTimeMs: number | null
+}
+
 // ── Style helpers ──────────────────────────────────────────────────────────────
 
 const card: React.CSSProperties = {
@@ -25,7 +31,7 @@ const card: React.CSSProperties = {
 
 // ── Format time ────────────────────────────────────────────────────────────────
 
-function formatSolveTime(ms: number | null): string {
+export function formatSolveTime(ms: number | null): string {
   if (ms == null) return '—'
   if (ms < 1000) return `${ms}ms`
   const seconds = ms / 1000
@@ -76,19 +82,11 @@ function Avatar({ name, url, isYou }: { name: string; url: string; isYou?: boole
 function SkeletonRows() {
   return (
     <div style={{ padding: '0.5rem' }}>
-      {Array.from({ length: 6 }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            display: 'flex', alignItems: 'center', gap: 12,
-            padding: '0.75rem 1rem', borderRadius: '0.5rem',
-          }}
-        >
+      {Array.from({ length: 5 }).map((_, i) => (
+        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: 12, padding: '0.75rem 1rem', borderRadius: '0.5rem' }}>
           <div style={{ width: 28, height: 14, borderRadius: 4, backgroundColor: '#1e293b' }} />
           <div style={{ width: 32, height: 32, borderRadius: '50%', backgroundColor: '#1e293b' }} />
-          <div style={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 6 }}>
-            <div style={{ width: 100 + i * 20, height: 12, borderRadius: 4, backgroundColor: '#1e293b' }} />
-          </div>
+          <div style={{ flex: 1, height: 12, borderRadius: 4, backgroundColor: '#1e293b', maxWidth: 120 + i * 20 }} />
           <div style={{ width: 48, height: 14, borderRadius: 4, backgroundColor: '#1e293b' }} />
           <div style={{ width: 40, height: 14, borderRadius: 4, backgroundColor: '#1e293b' }} />
         </div>
@@ -106,15 +104,13 @@ function LeaderboardRow({ entry, rank, isYou }: { entry: LeaderboardEntry; rank:
     <motion.div
       initial={{ opacity: 0, x: -8 }}
       animate={{ opacity: 1, x: 0 }}
-      transition={{ delay: rank * 0.03 }}
+      transition={{ delay: Math.min(rank * 0.03, 0.5) }}
       onMouseEnter={() => setHovered(true)}
       onMouseLeave={() => setHovered(false)}
       style={{
         display: 'flex', alignItems: 'center', gap: 12,
         padding: '0.75rem 1rem',
-        backgroundColor: isYou
-          ? 'rgba(99,102,241,0.07)'
-          : hovered ? 'rgba(255,255,255,0.02)' : 'transparent',
+        backgroundColor: isYou ? 'rgba(99,102,241,0.07)' : hovered ? 'rgba(255,255,255,0.02)' : 'transparent',
         borderLeft: isYou ? '3px solid #818CF8' : '3px solid transparent',
         borderRadius: '0.5rem',
         transition: 'background 0.15s',
@@ -128,35 +124,18 @@ function LeaderboardRow({ entry, rank, isYou }: { entry: LeaderboardEntry; rank:
       {/* Avatar + Name */}
       <div style={{ display: 'flex', alignItems: 'center', gap: 10, flex: 1, minWidth: 0 }}>
         <Avatar name={entry.displayName} url={entry.avatarUrl} isYou={isYou} />
-        <div style={{ minWidth: 0 }}>
-          <div style={{
-            fontSize: '0.875rem', fontWeight: isYou ? 700 : 600,
-            color: isYou ? '#C7D2FE' : '#E2E8F0',
-            overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-          }}>
-            {entry.displayName}{isYou ? ' (You)' : ''}
-          </div>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 6, marginTop: 2 }}>
-            <span style={{
-              fontSize: '0.65rem', fontWeight: 700,
-              color: entry.correct ? '#34D399' : '#F87171',
-              backgroundColor: entry.correct ? 'rgba(52,211,153,0.1)' : 'rgba(248,113,113,0.1)',
-              border: `1px solid ${entry.correct ? 'rgba(52,211,153,0.3)' : 'rgba(248,113,113,0.3)'}`,
-              borderRadius: '0.25rem', padding: '0.1rem 0.4rem',
-              textTransform: 'uppercase', letterSpacing: '0.05em',
-            }}>
-              {entry.correct ? '✓ Correct' : '✗ Wrong'}
-            </span>
-          </div>
+        <div style={{
+          fontSize: '0.875rem', fontWeight: isYou ? 700 : 600,
+          color: isYou ? '#C7D2FE' : '#E2E8F0',
+          overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+        }}>
+          {entry.displayName}{isYou ? ' (You)' : ''}
         </div>
       </div>
 
-      {/* Solve time */}
+      {/* Solve time — primary ranking column */}
       <div style={{ textAlign: 'right', minWidth: 72 }}>
-        <div style={{
-          fontSize: '0.9375rem', fontWeight: 800,
-          color: isYou ? '#818CF8' : '#F9FAFB',
-        }}>
+        <div style={{ fontSize: '0.9375rem', fontWeight: 800, color: isYou ? '#818CF8' : '#F9FAFB' }}>
           {formatSolveTime(entry.solveTimeMs)}
         </div>
         <div style={{ fontSize: '0.6rem', color: '#374151', marginTop: 1 }}>time</div>
@@ -164,10 +143,7 @@ function LeaderboardRow({ entry, rank, isYou }: { entry: LeaderboardEntry; rank:
 
       {/* Score */}
       <div style={{ textAlign: 'right', minWidth: 56 }}>
-        <div style={{
-          fontSize: '0.875rem', fontWeight: 700,
-          color: entry.score > 0 ? '#FCD34D' : '#374151',
-        }}>
+        <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#FCD34D' }}>
           {entry.score.toLocaleString()}
         </div>
         <div style={{ fontSize: '0.6rem', color: '#374151', marginTop: 1 }}>pts</div>
@@ -180,6 +156,7 @@ function LeaderboardRow({ entry, rank, isYou }: { entry: LeaderboardEntry; rank:
 
 export function DailyLeaderboard() {
   const [entries, setEntries] = useState<LeaderboardEntry[]>([])
+  const [stats, setStats] = useState<LeaderboardStats | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [leaderboardDate, setLeaderboardDate] = useState<string>('')
@@ -195,6 +172,7 @@ export function DailyLeaderboard() {
         if (!res.ok) throw new Error(`HTTP ${res.status}`)
         const data = await res.json()
         setEntries(data.entries ?? [])
+        setStats(data.stats ?? null)
         setLeaderboardDate(data.date ?? '')
       } catch (err) {
         console.error('Failed to fetch daily leaderboard:', err)
@@ -203,19 +181,21 @@ export function DailyLeaderboard() {
         setLoading(false)
       }
     }
-
     fetchLeaderboard()
   }, [])
 
   const dateDisplay = leaderboardDate
-    ? new Date(leaderboardDate + 'T12:00:00Z').toLocaleDateString('en-US', {
-        weekday: 'long', month: 'long', day: 'numeric',
-      })
+    ? new Date(leaderboardDate + 'T12:00:00Z').toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' })
     : ''
 
-  // Find current user's rank
+  // My rank among correct solvers only (entries is already filtered to correct)
   const myRank = user ? entries.findIndex((e) => e.userId === user.id) + 1 : 0
   const myEntry = user ? entries.find((e) => e.userId === user.id) : null
+
+  // Correct rate
+  const correctRate = stats && stats.totalCompletions > 0
+    ? Math.round((stats.correctCount / stats.totalCompletions) * 100)
+    : null
 
   return (
     <div style={{ minHeight: '100vh', paddingTop: 80, paddingBottom: 64, paddingLeft: 20, paddingRight: 20 }}>
@@ -223,19 +203,18 @@ export function DailyLeaderboard() {
 
         {/* Header */}
         <div style={{ textAlign: 'center', paddingTop: 32 }}>
-          <h1 style={{
-            fontSize: '1.875rem', fontWeight: 800, color: '#F9FAFB',
-            letterSpacing: '-0.025em', margin: '0 0 8px',
-          }}>
-            📅 Daily Leaderboard
+          <h1 style={{ fontSize: '1.875rem', fontWeight: 800, color: '#F9FAFB', letterSpacing: '-0.025em', margin: '0 0 8px' }}>
+            ⚡ Speed Rankings
           </h1>
           <p style={{ fontSize: '0.875rem', color: '#6B7280', margin: 0 }}>
-            {dateDisplay ? `${dateDisplay} — Ranked by solve time` : 'Ranked by solve time'}
+            {dateDisplay
+              ? `${dateDisplay} — Fastest correct answers`
+              : 'Fastest correct answers today'}
           </p>
         </div>
 
-        {/* Back to daily link */}
-        <div style={{ display: 'flex', gap: 8 }}>
+        {/* Back link */}
+        <div>
           <Link to="/daily" style={{ textDecoration: 'none' }}>
             <button style={{
               padding: '0.4rem 1rem', borderRadius: '0.5rem', fontSize: '0.8125rem',
@@ -248,7 +227,23 @@ export function DailyLeaderboard() {
           </Link>
         </div>
 
-        {/* Your rank highlight */}
+        {/* Stats summary cards — shown as soon as we have data */}
+        {!loading && stats && (
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
+            {[
+              { label: 'Total Players', value: String(stats.totalCompletions), color: '#818CF8' },
+              { label: 'Correct Rate', value: correctRate != null ? `${correctRate}%` : '—', color: '#34D399' },
+              { label: 'Avg Correct Time', value: formatSolveTime(stats.avgSolveTimeMs), color: '#FCD34D' },
+            ].map((s) => (
+              <div key={s.label} style={{ ...card, padding: '1.25rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
+                <div style={{ fontSize: '0.65rem', color: '#4B5563', textAlign: 'center', marginTop: 2 }}>{s.label}</div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {/* Your rank highlight — only shows if you got it correct */}
         {myEntry && myRank > 0 && (
           <motion.div
             initial={{ opacity: 0, y: 8 }}
@@ -256,21 +251,26 @@ export function DailyLeaderboard() {
             style={{
               backgroundColor: 'rgba(99,102,241,0.06)', border: '1px solid rgba(99,102,241,0.2)',
               borderRadius: '0.75rem', padding: '1rem 1.25rem',
-              display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-              gap: 16, flexWrap: 'wrap',
+              display: 'flex', alignItems: 'center', gap: 12, flexWrap: 'wrap',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-              <span style={{ fontSize: 24 }}>
-                {myRank <= 3 ? ['🥇', '🥈', '🥉'][myRank - 1] : '🏅'}
-              </span>
-              <div>
-                <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#C7D2FE' }}>
-                  Your Rank: #{myRank} of {entries.length}
-                </div>
-                <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: 2 }}>
-                  {myEntry.correct ? '✅ Correct' : '❌ Incorrect'} · {formatSolveTime(myEntry.solveTimeMs)} · {myEntry.score} pts
-                </div>
+            <span style={{ fontSize: 24 }}>
+              {myRank <= 3 ? ['🥇', '🥈', '🥉'][myRank - 1] : '🏅'}
+            </span>
+            <div>
+              <div style={{ fontSize: '0.875rem', fontWeight: 700, color: '#C7D2FE' }}>
+                Your rank: #{myRank} of {entries.length} correct solver{entries.length !== 1 ? 's' : ''}
+              </div>
+              <div style={{ fontSize: '0.75rem', color: '#6B7280', marginTop: 2 }}>
+                {formatSolveTime(myEntry.solveTimeMs)}
+                {stats?.avgSolveTimeMs != null && myEntry.solveTimeMs != null && (
+                  <span style={{ color: myEntry.solveTimeMs < stats.avgSolveTimeMs ? '#34D399' : '#F87171' }}>
+                    {myEntry.solveTimeMs < stats.avgSolveTimeMs
+                      ? ` · ${formatSolveTime(stats.avgSolveTimeMs - myEntry.solveTimeMs)} faster than avg`
+                      : ` · ${formatSolveTime(myEntry.solveTimeMs - stats.avgSolveTimeMs)} slower than avg`}
+                  </span>
+                )}
+                {' · '}{myEntry.score.toLocaleString()} pts
               </div>
             </div>
           </motion.div>
@@ -285,7 +285,7 @@ export function DailyLeaderboard() {
           }}>
             <span style={{ fontSize: 16 }}>📡</span>
             <p style={{ fontSize: '0.8rem', color: '#818CF8', margin: 0, lineHeight: 1.5 }}>
-              Sign in to appear on the leaderboard and track your rank.
+              Sign in to appear on the leaderboard and see your rank.
             </p>
           </div>
         )}
@@ -299,30 +299,24 @@ export function DailyLeaderboard() {
             borderBottom: '1px solid #1e293b',
           }}>
             <div style={{ minWidth: 36 }} />
-            <div style={{ flex: 1, fontSize: '0.6rem', fontWeight: 700, color: '#374151',
-              textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+            <div style={{ flex: 1, fontSize: '0.6rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               Player
             </div>
-            <div style={{ minWidth: 72, textAlign: 'right', fontSize: '0.6rem', fontWeight: 700,
-              color: '#374151', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
-              Time
+            <div style={{ minWidth: 72, textAlign: 'right', fontSize: '0.6rem', fontWeight: 700, color: '#FCD34D', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+              ⚡ Time
             </div>
-            <div style={{ minWidth: 56, textAlign: 'right', fontSize: '0.6rem', fontWeight: 700,
-              color: '#374151', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
+            <div style={{ minWidth: 56, textAlign: 'right', fontSize: '0.6rem', fontWeight: 700, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.07em' }}>
               Score
             </div>
           </div>
 
-          {/* Rows / loading / empty */}
           {loading ? (
             <SkeletonRows />
           ) : error ? (
-            <div style={{ padding: '3rem', textAlign: 'center', color: '#F87171', fontSize: '0.875rem' }}>
-              {error}
-            </div>
+            <div style={{ padding: '3rem', textAlign: 'center', color: '#F87171', fontSize: '0.875rem' }}>{error}</div>
           ) : entries.length === 0 ? (
             <div style={{ padding: '3rem', textAlign: 'center', color: '#4B5563', fontSize: '0.875rem' }}>
-              No completions yet today. Be the first to complete the daily challenge!
+              No correct answers yet today — be the first!
             </div>
           ) : (
             <div style={{ padding: '0.5rem' }}>
@@ -338,34 +332,11 @@ export function DailyLeaderboard() {
           )}
         </div>
 
-        {/* Stats summary */}
-        {!loading && entries.length > 0 && (
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 10 }}>
-            {[
-              {
-                label: 'Players Today',
-                value: String(entries.length),
-                color: '#818CF8',
-              },
-              {
-                label: 'Correct Rate',
-                value: `${Math.round((entries.filter((e) => e.correct).length / entries.length) * 100)}%`,
-                color: '#34D399',
-              },
-              {
-                label: 'Fastest Time',
-                value: formatSolveTime(
-                  entries.find((e) => e.correct)?.solveTimeMs ?? entries[0]?.solveTimeMs ?? null
-                ),
-                color: '#FCD34D',
-              },
-            ].map((s) => (
-              <div key={s.label} style={{ ...card, padding: '1.25rem', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 4 }}>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: s.color, lineHeight: 1 }}>{s.value}</div>
-                <div style={{ fontSize: '0.65rem', color: '#4B5563', textAlign: 'center' }}>{s.label}</div>
-              </div>
-            ))}
-          </div>
+        {/* Footer note */}
+        {!loading && stats && stats.totalCompletions > stats.correctCount && (
+          <p style={{ fontSize: '0.75rem', color: '#374151', textAlign: 'center', margin: 0 }}>
+            {stats.totalCompletions - stats.correctCount} player{stats.totalCompletions - stats.correctCount !== 1 ? 's' : ''} attempted but did not get the correct answer.
+          </p>
         )}
 
       </div>

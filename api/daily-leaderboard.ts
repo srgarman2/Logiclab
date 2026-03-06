@@ -3,7 +3,8 @@ import { createClient } from '@supabase/supabase-js'
 
 // ── Handler ────────────────────────────────────────────────────────────────────
 // Returns today's daily challenge leaderboard.
-// Ranked by: correct first, then fastest solve time.
+// Leaderboard = CORRECT answers only, ranked by fastest solve time.
+// Also returns aggregate stats for the "vs average" comparison.
 // Uses service-role key to bypass RLS (daily_completions has user-only RLS).
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -28,13 +29,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   const todayStr = dateParam || new Date().toISOString().split('T')[0]
 
   try {
-    // Fetch all completions for today, joined with profiles for display name
+    // Fetch ALL completions for today (need totals for stats), joined with profiles
     const { data: completions, error } = await supabase
       .from('daily_completions')
       .select(`
         user_id,
         score,
-        max_streak,
         answers,
         solve_time_ms,
         completed_at,
@@ -45,7 +45,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         )
       `)
       .eq('challenge_date', todayStr)
-      .order('score', { ascending: false })
 
     if (error) {
       console.error('Leaderboard fetch error:', error)
@@ -53,10 +52,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     if (!completions || completions.length === 0) {
-      return res.status(200).json({ date: todayStr, entries: [] })
+      return res.status(200).json({
+        date: todayStr,
+        entries: [],
+        stats: { totalCompletions: 0, correctCount: 0, avgSolveTimeMs: null },
+      })
     }
 
-    // Build leaderboard entries
+    // Build all entries
     type Entry = {
       userId: string
       displayName: string
@@ -67,7 +70,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       completedAt: string
     }
 
-    const entries: Entry[] = completions.map((c: any) => {
+    const allEntries: Entry[] = completions.map((c: any) => {
       const profile = c.profiles
       const answers = c.answers as Array<{ correct: boolean; timedOut: boolean }>
       const isCorrect = answers.length > 0 && answers[0]?.correct === true
@@ -83,11 +86,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     })
 
-    // Sort: correct first, then by fastest solve time (nulls last)
-    entries.sort((a, b) => {
-      // Correct answers first
-      if (a.correct !== b.correct) return a.correct ? -1 : 1
-      // Then by solve time (faster = better, nulls last)
+    // ── Aggregate stats (all completions) ──────────────────────────────────────
+
+    const totalCompletions = allEntries.length
+    const correctEntries = allEntries.filter((e) => e.correct)
+    const correctCount = correctEntries.length
+
+    // Average solve time among correct solvers who have a time recorded
+    const correctWithTime = correctEntries.filter((e) => e.solveTimeMs != null)
+    const avgSolveTimeMs = correctWithTime.length > 0
+      ? Math.round(correctWithTime.reduce((sum, e) => sum + (e.solveTimeMs ?? 0), 0) / correctWithTime.length)
+      : null
+
+    // ── Leaderboard = correct answers only, fastest first ─────────────────────
+
+    const leaderboard = correctEntries.slice().sort((a, b) => {
+      // Fastest solve time first; nulls go to the bottom
       if (a.solveTimeMs == null && b.solveTimeMs == null) return 0
       if (a.solveTimeMs == null) return 1
       if (b.solveTimeMs == null) return -1
@@ -96,7 +110,8 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json({
       date: todayStr,
-      entries: entries.slice(0, 100), // Top 100
+      entries: leaderboard.slice(0, 100), // Top 100 correct solvers
+      stats: { totalCompletions, correctCount, avgSolveTimeMs },
     })
 
   } catch (err) {
