@@ -7,6 +7,7 @@ import {
   fetchAllTimeLeaderboard,
   fetchFriendIds as dbFetchFriendIds,
   addFriendByCode,
+  resolveDisplayName,
   type WeeklyLeaderboardRow,
   type DbProfile,
 } from '../lib/database'
@@ -71,11 +72,15 @@ function topCategoryFromMastery(
 }
 
 function buildYouEntry(): LeaderboardEntry {
-  const { quizHighScore, quizLongestStreak } = useProgressStore.getState()
+  const { quizHighScore, quizLongestStreak, username } = useProgressStore.getState()
   const { user } = useAuthStore.getState()
+  const displayName = resolveDisplayName(
+    user?.user_metadata?.full_name,
+    username,
+  )
   return {
     id: user?.id ?? 'you',
-    name: user?.user_metadata?.full_name ?? 'You',
+    name: displayName,
     avatarSeed: user?.email ?? 'you',
     weeklyScore: quizHighScore,
     allTimeScore: quizHighScore,
@@ -94,8 +99,8 @@ function weeklyRowToEntry(
 ): LeaderboardEntry {
   return {
     id: row.id,
-    name: row.display_name || row.email || 'Player',
-    avatarSeed: row.email || row.display_name || 'anon',
+    name: resolveDisplayName(row.display_name, row.username),
+    avatarSeed: row.display_name || 'anon',
     weeklyScore: row.weekly_score,
     allTimeScore: row.all_time_score,
     weeklyStreak: row.weekly_streak,
@@ -113,8 +118,8 @@ function profileToEntry(
 ): LeaderboardEntry {
   return {
     id: row.id,
-    name: row.display_name || row.email || 'Player',
-    avatarSeed: row.email || row.display_name || 'anon',
+    name: resolveDisplayName(row.display_name, row.username),
+    avatarSeed: row.display_name || 'anon',
     weeklyScore: 0, // Not available from profiles table directly
     allTimeScore: row.quiz_high_score,
     weeklyStreak: 0,

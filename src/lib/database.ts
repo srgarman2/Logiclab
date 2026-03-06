@@ -17,6 +17,21 @@ export type DbProfile = {
   category_mastery: Record<QuizCategory, { correct: number; attempted: number }>
   login_streak: number | null
   last_login_date: string | null
+  username: string | null
+}
+
+// ── Display name helper ────────────────────────────────────────────────────────
+// Priority: username → first name from display_name → 'Player'
+// Never exposes full name or email on public leaderboards.
+
+export function resolveDisplayName(
+  displayName: string | null | undefined,
+  username: string | null | undefined,
+  _email?: string | null,
+): string {
+  if (username) return username
+  if (displayName) return displayName.split(' ')[0] // first name only
+  return 'Player'
 }
 
 export type DbQuizResult = {
@@ -33,6 +48,7 @@ export type DbQuizResult = {
 export type WeeklyLeaderboardRow = {
   id: string
   display_name: string
+  username: string | null
   avatar_url: string
   email: string
   friend_code: string
@@ -70,6 +86,22 @@ export async function upsertProfile(
     .update({ ...updates, updated_at: new Date().toISOString() })
     .eq('id', userId)
   if (error) console.error('[db] upsertProfile:', error.message)
+}
+
+export async function updateUsername(
+  userId: string,
+  username: string,
+): Promise<{ success: boolean; error?: string }> {
+  const { error } = await supabase
+    .from('profiles')
+    .update({ username: username.trim() || null, updated_at: new Date().toISOString() })
+    .eq('id', userId)
+  if (error) {
+    // Unique constraint violation
+    if (error.code === '23505') return { success: false, error: 'Username already taken' }
+    return { success: false, error: error.message }
+  }
+  return { success: true }
 }
 
 // ── Quiz Results ───────────────────────────────────────────────────────────────

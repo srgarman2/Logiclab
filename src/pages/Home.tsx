@@ -6,6 +6,7 @@ import { useAuthStore } from '../store/authStore'
 import { useQuizStore } from '../store/quizStore'
 import { quizQuestions, type QuizCategory } from '../data/quizQuestions'
 import { SignInModal } from '../components/auth/SignInModal'
+import { UsernameModal } from '../components/UsernameModal'
 import { useDailyStore } from '../store/dailyStore'
 
 // Total question counts per category (static bank)
@@ -159,15 +160,20 @@ const card: React.CSSProperties = {
 }
 
 export function Home() {
-  const { quizHighScore, quizLongestStreak, quizTotalPlayed, totalXP, loginStreak } = useProgressStore()
+  const { quizHighScore, quizLongestStreak, quizTotalPlayed, totalXP, loginStreak, username } = useProgressStore()
   const { user } = useAuthStore()
   const { start } = useQuizStore()
   const [signInOpen, setSignInOpen] = useState(false)
+  const [usernameOpen, setUsernameOpen] = useState(false)
   const { fetchToday } = useDailyStore()
 
   useEffect(() => { fetchToday() }, [fetchToday])
 
   const levelInfo = getLevelProgress(totalXP)
+
+  // Displayed name: username → first name from Google → nothing (guest)
+  const displayName = username
+    ?? (user?.user_metadata?.full_name?.split(' ')[0] ?? null)
 
   const stats = [
     { label: 'Best Score',     value: quizHighScore.toLocaleString(), color: '#818CF8' },
@@ -227,13 +233,35 @@ export function Home() {
               {levelInfo.current.level}
             </div>
             <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
-                <span style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#E2E8F0' }}>
-                  {levelInfo.current.title}
-                </span>
-                <span style={{ fontSize: '0.65rem', color: '#4B5563' }}>
-                  Lv. {levelInfo.current.level}
-                </span>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexWrap: 'wrap' }}>
+                <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                  {displayName && (
+                    <span style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#E2E8F0' }}>
+                      {displayName}
+                    </span>
+                  )}
+                  <span style={{ fontSize: '0.75rem', fontWeight: 700, color: '#818CF8' }}>
+                    {levelInfo.current.title}
+                  </span>
+                  <span style={{ fontSize: '0.65rem', color: '#4B5563' }}>
+                    Lv.{levelInfo.current.level}
+                  </span>
+                </div>
+                {user && (
+                  <button
+                    onClick={() => setUsernameOpen(true)}
+                    style={{
+                      fontSize: '0.6rem', fontWeight: 600, cursor: 'pointer',
+                      color: '#4B5563', background: 'none', border: '1px solid #1e293b',
+                      borderRadius: '0.375rem', padding: '0.1rem 0.45rem',
+                      transition: 'all 0.15s',
+                    }}
+                    onMouseEnter={e => { e.currentTarget.style.color = '#818CF8'; e.currentTarget.style.borderColor = '#818CF8' }}
+                    onMouseLeave={e => { e.currentTarget.style.color = '#4B5563'; e.currentTarget.style.borderColor = '#1e293b' }}
+                  >
+                    {username ? '✏️ edit' : '+ set username'}
+                  </button>
+                )}
               </div>
               {/* XP progress bar */}
               <div style={{ marginTop: 6 }}>
@@ -386,6 +414,7 @@ export function Home() {
       </div>
 
       <SignInModal open={signInOpen} onClose={() => setSignInOpen(false)} />
+      <UsernameModal open={usernameOpen} onClose={() => setUsernameOpen(false)} />
     </div>
   )
 }

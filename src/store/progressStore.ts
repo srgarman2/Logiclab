@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { type QuizCategory } from '../data/quizQuestions'
 import { useAuthStore } from './authStore'
-import { upsertProfile, type DbProfile } from '../lib/database'
+import { upsertProfile, updateUsername as dbUpdateUsername, type DbProfile } from '../lib/database'
 
 type CategoryMasteryEntry = { correct: number; attempted: number }
 type AnswerRecord = { category: QuizCategory; correct: boolean }
@@ -88,6 +88,10 @@ type ProgressState = {
   lastLoginDate: string | null
   checkLoginStreak: () => { bonusXP: number; newStreak: number } | null
 
+  // Username (optional, shown on leaderboards instead of full name)
+  username: string | null
+  setUsername: (username: string) => Promise<{ success: boolean; error?: string }>
+
   // Category Mastery
   categoryMastery: Record<QuizCategory, CategoryMasteryEntry>
   recordAnswers: (answers: AnswerRecord[]) => void
@@ -158,6 +162,19 @@ export const useProgressStore = create<ProgressState>()(
         return { bonusXP, newStreak }
       },
 
+      // Username
+      username: null,
+      setUsername: async (username: string) => {
+        const { user } = useAuthStore.getState()
+        if (!user) return { success: false, error: 'Not signed in' }
+        const trimmed = username.trim()
+        const result = await dbUpdateUsername(user.id, trimmed)
+        if (result.success) {
+          set({ username: trimmed || null })
+        }
+        return result
+      },
+
       categoryMastery: {
         'indicator-words':   { correct: 0, attempted: 0 },
         'formal-logic':      { correct: 0, attempted: 0 },
@@ -224,6 +241,8 @@ export const useProgressStore = create<ProgressState>()(
           categoryMastery: mergedMastery,
           loginStreak: Math.max(local.loginStreak, dbProfile.login_streak ?? 0),
           lastLoginDate: dbProfile.last_login_date ?? local.lastLoginDate,
+          // Prefer DB username over local (source of truth)
+          username: dbProfile.username ?? local.username,
         })
       },
     }),

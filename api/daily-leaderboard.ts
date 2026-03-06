@@ -41,7 +41,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         profiles:user_id (
           display_name,
           avatar_url,
-          email
+          username
         )
       `)
       .eq('challenge_date', todayStr)
@@ -77,7 +77,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       return {
         userId: c.user_id,
-        displayName: profile?.display_name || profile?.email?.split('@')[0] || 'Anonymous',
+        displayName: profile?.username || profile?.display_name?.split(' ')[0] || 'Player',
         avatarUrl: profile?.avatar_url || '',
         correct: isCorrect,
         solveTimeMs: c.solve_time_ms,
