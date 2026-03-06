@@ -125,8 +125,7 @@ function DailyCard() {
           </div>
           {alreadyCompleted ? (
             <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '2px 0 0' }}>
-              {correct}/10 correct · {(completionScore ?? 0).toLocaleString()} pts
-              &nbsp;{'🟢'.repeat(correct)}{'🔴'.repeat(10 - correct)}
+              {correct === 1 ? '✅ Correct' : '❌ Incorrect'} · {(completionScore ?? 0).toLocaleString()} pts
             </p>
           ) : (
             <p style={{ fontSize: '0.75rem', color: '#6B7280', margin: '2px 0 0' }}>

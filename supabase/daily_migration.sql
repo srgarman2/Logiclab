@@ -25,6 +25,7 @@ CREATE TABLE IF NOT EXISTS daily_completions (
   score          INT         NOT NULL DEFAULT 0,
   max_streak     INT         NOT NULL DEFAULT 0,
   answers        JSONB       NOT NULL DEFAULT '[]',
+  solve_time_ms  INT         DEFAULT NULL,   -- milliseconds to answer the question
   completed_at   TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id, challenge_date)
 );

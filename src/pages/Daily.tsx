@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
+import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDailyStore, type DailyAnswerResult } from '../store/dailyStore'
 import { useAuthStore } from '../store/authStore'
@@ -42,6 +43,16 @@ const DIFF_CONFIG = {
 } as const
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D']
+
+function formatSolveTime(ms: number | null): string {
+  if (ms == null) return '—'
+  if (ms < 1000) return `${ms}ms`
+  const seconds = ms / 1000
+  if (seconds < 60) return `${seconds.toFixed(1)}s`
+  const mins = Math.floor(seconds / 60)
+  const secs = (seconds % 60).toFixed(0)
+  return `${mins}:${secs.padStart(2, '0')}`
+}
 
 // ── Share grid ─────────────────────────────────────────────────────────────────
 
@@ -92,7 +103,7 @@ function useCountdown() {
 function CompletedView() {
   const {
     challengeNumber, todayCategory, completionScore,
-    completionMaxStreak, completionAnswers,
+    completionMaxStreak, completionAnswers, completionSolveTimeMs,
   } = useDailyStore()
   const [copied, setCopied] = useState(false)
   const countdown = useCountdown()
@@ -135,7 +146,7 @@ function CompletedView() {
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
         {[
           { label: 'Score', value: (completionScore ?? 0).toLocaleString(), color: '#818CF8' },
-          { label: 'Best Streak', value: `×${completionMaxStreak ?? 0}`, color: '#FCD34D' },
+          { label: 'Solve Time', value: formatSolveTime(completionSolveTimeMs), color: '#FCD34D' },
         ].map((s) => (
           <div key={s.label} style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '0.75rem', padding: '1rem' }}>
             <div style={{ fontSize: '1.75rem', fontWeight: 800, color: s.color }}>{s.value}</div>
@@ -170,19 +181,35 @@ function CompletedView() {
         </span>
       </div>
 
-      {/* Share button */}
-      <button
-        onClick={handleShare}
-        style={{
-          padding: '0.75rem', borderRadius: '0.625rem', fontSize: '0.875rem',
-          fontWeight: 700, cursor: 'pointer', width: '100%',
-          backgroundColor: copied ? 'rgba(34,197,94,0.12)' : 'rgba(99,102,241,0.12)',
-          border: copied ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(99,102,241,0.35)',
-          color: copied ? '#34D399' : '#818CF8', transition: 'all 0.15s',
-        }}
-      >
-        {copied ? '✓ Copied to clipboard!' : '📋 Share Results'}
-      </button>
+      {/* Share + Leaderboard buttons */}
+      <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <button
+          onClick={handleShare}
+          style={{
+            padding: '0.75rem', borderRadius: '0.625rem', fontSize: '0.875rem',
+            fontWeight: 700, cursor: 'pointer', width: '100%',
+            backgroundColor: copied ? 'rgba(34,197,94,0.12)' : 'rgba(99,102,241,0.12)',
+            border: copied ? '1px solid rgba(34,197,94,0.35)' : '1px solid rgba(99,102,241,0.35)',
+            color: copied ? '#34D399' : '#818CF8', transition: 'all 0.15s',
+          }}
+        >
+          {copied ? '✓ Copied to clipboard!' : '📋 Share Results'}
+        </button>
+
+        <Link to="/daily/leaderboard" style={{ textDecoration: 'none', width: '100%' }}>
+          <button
+            style={{
+              padding: '0.75rem', borderRadius: '0.625rem', fontSize: '0.875rem',
+              fontWeight: 700, cursor: 'pointer', width: '100%',
+              backgroundColor: 'rgba(252,211,77,0.08)',
+              border: '1px solid rgba(252,211,77,0.25)',
+              color: '#FCD34D', transition: 'all 0.15s',
+            }}
+          >
+            🏆 View Daily Leaderboard
+          </button>
+        </Link>
+      </div>
 
       {/* Countdown */}
       <p style={{ fontSize: '0.8rem', color: '#374151', margin: 0 }}>

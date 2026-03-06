@@ -31,11 +31,16 @@ type DailyState = {
   selectedAnswer: number | null
   answers: DailyAnswerResult[]
 
+  // Solve time tracking
+  quizStartedAt: number | null      // Date.now() when quiz starts
+  solveTimeMs: number | null         // milliseconds to answer
+
   // Completion state
   alreadyCompleted: boolean
   completionScore: number | null
   completionMaxStreak: number | null
   completionAnswers: DailyAnswerResult[]
+  completionSolveTimeMs: number | null
 
   // Actions
   fetchToday: () => Promise<void>
@@ -72,10 +77,14 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
   selectedAnswer: null,
   answers: [],
 
+  quizStartedAt: null,
+  solveTimeMs: null,
+
   alreadyCompleted: false,
   completionScore: null,
   completionMaxStreak: null,
   completionAnswers: [],
+  completionSolveTimeMs: null,
 
   // ── fetchToday ──────────────────────────────────────────────────────────────
 
@@ -97,19 +106,20 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
 
       // Check if user already completed today (via Supabase)
       let completed = false
-      let completion = null
+      type CompletionRow = { score: number; max_streak: number; answers: DailyAnswerResult[]; solve_time_ms: number | null }
+      let completion: CompletionRow | null = null
       const { user } = useAuthStore.getState()
       if (user) {
         try {
           const { data: comp } = await supabase
             .from('daily_completions')
-            .select('score, max_streak, answers, completed_at')
+            .select('score, max_streak, answers, solve_time_ms, completed_at')
             .eq('user_id', user.id)
             .eq('challenge_date', data.date)
             .maybeSingle()
           if (comp) {
             completed = true
-            completion = comp
+            completion = comp as unknown as CompletionRow
           }
         } catch { /* table might not exist yet — ignore */ }
       }
@@ -124,6 +134,7 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
         completionScore: completion?.score ?? null,
         completionMaxStreak: completion?.max_streak ?? null,
         completionAnswers: completion?.answers ?? [],
+        completionSolveTimeMs: completion?.solve_time_ms ?? null,
       })
     } catch (err) {
       console.error('Failed to fetch daily challenge:', err)
@@ -143,13 +154,15 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
       timeLeft: 30,
       selectedAnswer: null,
       answers: [],
+      quizStartedAt: Date.now(),
+      solveTimeMs: null,
     })
   },
 
   // ── selectAnswer ─────────────────────────────────────────────────────────────
 
   selectAnswer: (index: number) => {
-    const { currentIndex, questions, score, streak, maxStreak, timeLeft, answers } = get()
+    const { currentIndex, questions, score, streak, maxStreak, timeLeft, answers, quizStartedAt } = get()
     const question = questions[currentIndex]
     if (!question || get().selectedAnswer !== null) return
 
@@ -163,12 +176,16 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
 
     const newAnswers: DailyAnswerResult[] = [...answers, { correct: isCorrect, timedOut: false }]
 
+    // Compute solve time
+    const solveTimeMs = quizStartedAt ? Date.now() - quizStartedAt : null
+
     set({
       selectedAnswer: index,
       score: score + points,
       streak: newStreak,
       maxStreak: Math.max(maxStreak, newStreak),
       answers: newAnswers,
+      solveTimeMs,
     })
   },
 
@@ -186,7 +203,7 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
   // ── tick ─────────────────────────────────────────────────────────────────────
 
   tick: () => {
-    const { timeLeft, currentIndex, questions, answers } = get()
+    const { timeLeft, currentIndex, questions, answers, quizStartedAt } = get()
     if (get().selectedAnswer !== null) return
 
     if (timeLeft <= 1) {
@@ -195,10 +212,12 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
       if (!question) return
       const newAnswers: DailyAnswerResult[] = [...answers, { correct: false, timedOut: true }]
       const isLast = currentIndex + 1 >= questions.length
+      const solveTimeMs = quizStartedAt ? Date.now() - quizStartedAt : 30000
       set({
         selectedAnswer: -1,
         streak: 0,
         answers: newAnswers,
+        solveTimeMs,
         phase: isLast ? 'finished' : 'playing',
         ...(isLast ? {} : { currentIndex: currentIndex + 1, timeLeft: 30 }),
       })
@@ -210,7 +229,7 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
   // ── submitCompletion ─────────────────────────────────────────────────────────
 
   submitCompletion: async () => {
-    const { todayDate, score, maxStreak, answers } = get()
+    const { todayDate, score, maxStreak, answers, solveTimeMs } = get()
 
     // Always save locally so CompletedView shows the right score
     set({
@@ -218,6 +237,7 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
       completionScore: score,
       completionMaxStreak: maxStreak,
       completionAnswers: answers,
+      completionSolveTimeMs: solveTimeMs,
     })
 
     // Optionally persist to Supabase if signed in
@@ -231,6 +251,7 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
         score,
         max_streak: maxStreak,
         answers,
+        solve_time_ms: solveTimeMs,
       })
     } catch (err) {
       console.error('Failed to save daily completion to Supabase:', err)
@@ -249,6 +270,8 @@ export const useDailyStore = create<DailyState>()((set, get) => ({
       timeLeft: 30,
       selectedAnswer: null,
       answers: [],
+      quizStartedAt: null,
+      solveTimeMs: null,
     })
   },
 }))
