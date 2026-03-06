@@ -61,7 +61,7 @@ export function Quiz() {
   const {
     phase, deck, currentIndex, selectedAnswer, score, streak, maxStreak,
     timeLeft, shieldUsed, challengeTarget,
-    start, selectAnswer, nextQuestion, tick, reset, setChallengeTarget,
+    start, selectAnswer, nextQuestion, tick, reset, setChallengeTarget, markXPAwarded,
   } = useQuizStore()
 
   const { updateQuizScore, streakShields, recordAnswers } = useProgressStore()
@@ -118,8 +118,12 @@ export function Quiz() {
   }, [selectedAnswer]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // On finish — save score, record mastery, detect shield earned, show XP toast, sync to Supabase
+  // xpAwarded guard prevents double-award when the component re-mounts while phase is still 'finished'
   useEffect(() => {
     if (phase !== 'finished') return
+    if (useQuizStore.getState().xpAwarded) return
+    markXPAwarded()
+
     const newTotal = useProgressStore.getState().quizTotalPlayed + 1
     const xpGain = Math.floor(score / 10)
     const prevXP = useProgressStore.getState().totalXP

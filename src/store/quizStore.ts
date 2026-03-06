@@ -20,6 +20,7 @@ type QuizState = {
   totalTime: number
   shieldUsed: boolean
   challengeTarget: number | null
+  xpAwarded: boolean   // prevents double-award on component re-mount
 
   start: (category?: QuizCategory | 'all', questionIds?: string[], difficulty?: Difficulty | 'mixed') => void
   selectAnswer: (index: number) => void
@@ -28,6 +29,7 @@ type QuizState = {
   finish: () => void
   reset: () => void
   setChallengeTarget: (score: number) => void
+  markXPAwarded: () => void
 }
 
 const TIME_PER_QUESTION = 30
@@ -77,6 +79,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   totalTime: 0,
   shieldUsed: false,
   challengeTarget: null,
+  xpAwarded: false,
 
   start: (category = 'all', questionIds?: string[], difficulty: Difficulty | 'mixed' = 'mixed') => {
     let deck: QuizQuestion[]
@@ -102,6 +105,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
       totalTime: 0,
       shieldUsed: false,
       challengeTarget: null,
+      xpAwarded: false,
     })
   },
 
@@ -175,6 +179,8 @@ export const useQuizStore = create<QuizState>((set, get) => ({
 
   finish: () => set({ phase: 'finished' }),
 
+  markXPAwarded: () => set({ xpAwarded: true }),
+
   reset: () => set({
     phase: 'idle',
     difficulty: 'mixed',
@@ -188,5 +194,6 @@ export const useQuizStore = create<QuizState>((set, get) => ({
     totalTime: 0,
     shieldUsed: false,
     challengeTarget: null,
+    xpAwarded: false,
   }),
 }))
