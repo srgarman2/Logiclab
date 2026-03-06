@@ -2,12 +2,13 @@ import { useEffect, useRef, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useSearchParams } from 'react-router-dom'
 import { useQuizStore } from '../store/quizStore'
-import { useProgressStore } from '../store/progressStore'
+import { useProgressStore, getLevelProgress } from '../store/progressStore'
 import { useAuthStore } from '../store/authStore'
 import { QuizTimer } from '../components/quiz/QuizTimer'
 import { ChallengeModal } from '../components/quiz/ChallengeModal'
+import { showXPToast } from '../components/XPToast'
 import { insertQuizResult } from '../lib/database'
-import { quizQuestions, type QuizCategory } from '../data/quizQuestions'
+import { quizQuestions, type QuizCategory, type Difficulty } from '../data/quizQuestions'
 
 const CATEGORY_OPTIONS: { value: QuizCategory | 'all'; label: string; color: string }[] = [
   { value: 'all',               label: 'All Topics',         color: '#6366F1' },
@@ -15,6 +16,16 @@ const CATEGORY_OPTIONS: { value: QuizCategory | 'all'; label: string; color: str
   { value: 'formal-logic',      label: 'Formal Logic',       color: '#A855F7' },
   { value: 'argument-analysis', label: 'Argument Analysis',  color: '#EC4899' },
   { value: 'flaw-detection',    label: 'Flaw Detection',     color: '#F97316' },
+  { value: 'assumption',        label: 'Assumption',         color: '#A855F7' },
+  { value: 'strengthen-weaken', label: 'Strengthen/Weaken',  color: '#22C55E' },
+  { value: 'inference',         label: 'Inference',          color: '#3B82F6' },
+]
+
+const DIFFICULTY_OPTIONS: { value: Difficulty | 'mixed'; label: string; color: string; xpLabel: string }[] = [
+  { value: 'mixed', label: 'Mixed',  color: '#6366F1', xpLabel: 'Balanced XP' },
+  { value: 1,       label: 'Easy',   color: '#34D399', xpLabel: '1x XP' },
+  { value: 2,       label: 'Medium', color: '#FCD34D', xpLabel: '1.5x XP' },
+  { value: 3,       label: 'Hard',   color: '#F97316', xpLabel: '2x XP' },
 ]
 
 const OPTION_LETTERS = ['A', 'B', 'C', 'D']
@@ -106,13 +117,20 @@ export function Quiz() {
     setAnswersLog((prev) => [...prev, { category: question.category, correct: isCorrect }])
   }, [selectedAnswer]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // On finish — save score, record mastery, detect shield earned, sync to Supabase
+  // On finish — save score, record mastery, detect shield earned, show XP toast, sync to Supabase
   useEffect(() => {
     if (phase !== 'finished') return
     const newTotal = useProgressStore.getState().quizTotalPlayed + 1
+    const xpGain = Math.floor(score / 10)
+    const prevXP = useProgressStore.getState().totalXP
     updateQuizScore(score, maxStreak)
     if (newTotal % 5 === 0) setShieldEarned(true)
     recordAnswers(answersLog)
+
+    // Show XP toast
+    if (xpGain > 0) {
+      showXPToast(xpGain, prevXP)
+    }
 
     // Sync to Supabase (fire-and-forget — never blocks UI)
     const user = useAuthStore.getState().user
@@ -129,6 +147,13 @@ export function Quiz() {
     }
   }, [phase]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // Selected difficulty for the idle screen
+  const [selectedDifficulty, setSelectedDifficulty] = useState<Difficulty | 'mixed'>('mixed')
+
+  // Level info for display
+  const { totalXP } = useProgressStore()
+  const levelInfo = getLevelProgress(totalXP)
+
   /* ── IDLE ── */
   if (phase === 'idle') {
     return (
@@ -140,14 +165,47 @@ export function Quiz() {
             <p style={{ fontSize: '0.875rem', color: '#4B5563', margin: 0 }}>30 seconds per question. Build streaks. Beat your score.</p>
           </div>
 
+          {/* Difficulty selector */}
+          <div style={{ ...panel, marginBottom: 12 }}>
+            <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 10px' }}>Difficulty</p>
+            <div style={{ display: 'flex', gap: 6 }}>
+              {DIFFICULTY_OPTIONS.map((d) => {
+                const isActive = selectedDifficulty === d.value
+                return (
+                  <button
+                    key={String(d.value)}
+                    onClick={() => setSelectedDifficulty(d.value)}
+                    style={{
+                      flex: 1, padding: '0.5rem 0.25rem', borderRadius: '0.5rem',
+                      fontSize: '0.75rem', fontWeight: 700, cursor: 'pointer',
+                      backgroundColor: isActive ? d.color + '22' : 'transparent',
+                      border: `1.5px solid ${isActive ? d.color : '#1e293b'}`,
+                      color: isActive ? d.color : '#4B5563',
+                      transition: 'all 0.15s',
+                      display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2,
+                    }}
+                  >
+                    <span>{d.label}</span>
+                    <span style={{ fontSize: '0.6rem', fontWeight: 500, opacity: 0.7 }}>{d.xpLabel}</span>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+
           <div style={{ ...panel, display: 'flex', flexDirection: 'column', gap: 8 }}>
             <p style={{ fontSize: '0.75rem', fontWeight: 600, color: '#374151', textTransform: 'uppercase', letterSpacing: '0.06em', margin: '0 0 4px' }}>Choose a category</p>
             {CATEGORY_OPTIONS.map((opt) => {
-              const count = opt.value === 'all' ? quizQuestions.length : quizQuestions.filter((q) => q.category === opt.value).length
+              let count: number
+              if (opt.value === 'all') {
+                count = selectedDifficulty === 'mixed' ? quizQuestions.length : quizQuestions.filter((q) => q.difficulty === selectedDifficulty).length
+              } else {
+                count = quizQuestions.filter((q) => q.category === opt.value && (selectedDifficulty === 'mixed' || q.difficulty === selectedDifficulty)).length
+              }
               return (
                 <button
                   key={opt.value}
-                  onClick={() => start(opt.value)}
+                  onClick={() => start(opt.value, undefined, selectedDifficulty)}
                   style={{
                     display: 'flex', justifyContent: 'space-between', alignItems: 'center',
                     padding: '0.75rem 1rem', borderRadius: '0.625rem', cursor: 'pointer',
@@ -199,13 +257,14 @@ export function Quiz() {
           )}
 
           {/* Score grid */}
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 10 }}>
             {[
               { label: 'Final Score', value: score.toLocaleString(), color: '#818CF8', sub: isHighScore ? '★ New best!' : undefined },
               { label: 'Best Streak', value: String(maxStreak), color: '#34D399' },
+              { label: 'XP Earned', value: `+${Math.floor(score / 10)}`, color: '#10B981' },
             ].map((s) => (
               <div key={s.label} style={{ backgroundColor: '#0f172a', border: '1px solid #1e293b', borderRadius: '0.75rem', padding: '1rem' }}>
-                <div style={{ fontSize: '1.75rem', fontWeight: 800, color: s.color }}>{s.value}</div>
+                <div style={{ fontSize: '1.5rem', fontWeight: 800, color: s.color }}>{s.value}</div>
                 <div style={{ fontSize: '0.7rem', color: '#374151', marginTop: 4 }}>{s.label}</div>
                 {s.sub && <div style={{ fontSize: '0.7rem', color: '#FCD34D', marginTop: 4 }}>{s.sub}</div>}
               </div>

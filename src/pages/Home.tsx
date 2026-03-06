@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { motion } from 'framer-motion'
-import { useProgressStore } from '../store/progressStore'
+import { useProgressStore, getLevelProgress } from '../store/progressStore'
 import { useAuthStore } from '../store/authStore'
 import { useQuizStore } from '../store/quizStore'
 import { quizQuestions, type QuizCategory } from '../data/quizQuestions'
@@ -159,13 +159,15 @@ const card: React.CSSProperties = {
 }
 
 export function Home() {
-  const { quizHighScore, quizLongestStreak, quizTotalPlayed } = useProgressStore()
+  const { quizHighScore, quizLongestStreak, quizTotalPlayed, totalXP, loginStreak } = useProgressStore()
   const { user } = useAuthStore()
   const { start } = useQuizStore()
   const [signInOpen, setSignInOpen] = useState(false)
   const { fetchToday } = useDailyStore()
 
   useEffect(() => { fetchToday() }, [fetchToday])
+
+  const levelInfo = getLevelProgress(totalXP)
 
   const stats = [
     { label: 'Best Score',     value: quizHighScore.toLocaleString(), color: '#818CF8' },
@@ -200,6 +202,86 @@ export function Home() {
             </button>
           </Link>
         </div>
+
+        {/* Level + Login Streak Row */}
+        <motion.div
+          initial={{ opacity: 0, y: 8 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          style={{
+            ...card,
+            padding: '1.25rem',
+            display: 'flex', alignItems: 'center', gap: 16, flexWrap: 'wrap',
+          }}
+        >
+          {/* Level badge */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: 12, flex: 1, minWidth: 180 }}>
+            <div style={{
+              width: 48, height: 48, borderRadius: '50%',
+              background: 'linear-gradient(135deg, #4F46E5 0%, #7C3AED 100%)',
+              display: 'flex', alignItems: 'center', justifyContent: 'center',
+              fontSize: '1.25rem', fontWeight: 900, color: '#fff',
+              border: '2px solid rgba(129,140,248,0.4)',
+              boxShadow: '0 0 20px rgba(79,70,229,0.3)',
+            }}>
+              {levelInfo.current.level}
+            </div>
+            <div style={{ flex: 1, minWidth: 0 }}>
+              <div style={{ display: 'flex', alignItems: 'baseline', gap: 6 }}>
+                <span style={{ fontSize: '0.9375rem', fontWeight: 700, color: '#E2E8F0' }}>
+                  {levelInfo.current.title}
+                </span>
+                <span style={{ fontSize: '0.65rem', color: '#4B5563' }}>
+                  Lv. {levelInfo.current.level}
+                </span>
+              </div>
+              {/* XP progress bar */}
+              <div style={{ marginTop: 6 }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                  <span style={{ fontSize: '0.6rem', color: '#4B5563' }}>
+                    {totalXP.toLocaleString()} XP
+                  </span>
+                  <span style={{ fontSize: '0.6rem', color: '#4B5563' }}>
+                    {levelInfo.next ? `${levelInfo.xpToNext.toLocaleString()} to Lv. ${levelInfo.next.level}` : 'MAX'}
+                  </span>
+                </div>
+                <div style={{ height: 5, backgroundColor: '#1e293b', borderRadius: 9999, overflow: 'hidden' }}>
+                  <motion.div
+                    initial={{ width: 0 }}
+                    animate={{ width: `${levelInfo.progressPct}%` }}
+                    transition={{ duration: 0.8, ease: 'easeOut' }}
+                    style={{
+                      height: '100%',
+                      background: 'linear-gradient(90deg, #4F46E5, #818CF8)',
+                      borderRadius: 9999,
+                    }}
+                  />
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Login streak */}
+          {loginStreak > 0 && (
+            <div style={{
+              display: 'flex', alignItems: 'center', gap: 6,
+              backgroundColor: 'rgba(249,115,22,0.08)',
+              border: '1px solid rgba(249,115,22,0.25)',
+              borderRadius: '0.625rem',
+              padding: '0.5rem 0.875rem',
+            }}>
+              <span style={{ fontSize: '1.125rem' }}>🔥</span>
+              <div>
+                <div style={{ fontSize: '1rem', fontWeight: 800, color: '#F97316', lineHeight: 1 }}>
+                  {loginStreak}
+                </div>
+                <div style={{ fontSize: '0.55rem', color: '#6B7280', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
+                  day streak
+                </div>
+              </div>
+            </div>
+          )}
+        </motion.div>
 
         {/* Daily Challenge card */}
         <DailyCard />

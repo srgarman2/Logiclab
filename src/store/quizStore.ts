@@ -9,6 +9,7 @@ type QuizQuestion = typeof quizQuestions[number]
 type QuizState = {
   phase: QuizPhase
   category: QuizCategory | 'all'
+  difficulty: Difficulty | 'mixed'
   deck: QuizQuestion[]
   currentIndex: number
   selectedAnswer: number | null
@@ -20,7 +21,7 @@ type QuizState = {
   shieldUsed: boolean
   challengeTarget: number | null
 
-  start: (category?: QuizCategory | 'all', questionIds?: string[]) => void
+  start: (category?: QuizCategory | 'all', questionIds?: string[], difficulty?: Difficulty | 'mixed') => void
   selectAnswer: (index: number) => void
   nextQuestion: () => void
   tick: () => void
@@ -44,22 +45,28 @@ function shuffle<T>(arr: T[]): T[] {
   return a
 }
 
-function buildDeck(category: QuizCategory | 'all'): QuizQuestion[] {
-  const pool = category === 'all'
+function buildDeck(category: QuizCategory | 'all', difficulty: Difficulty | 'mixed' = 'mixed'): QuizQuestion[] {
+  let pool = category === 'all'
     ? quizQuestions
     : quizQuestions.filter((q) => q.category === category)
 
+  if (difficulty !== 'mixed') {
+    // Single difficulty mode — take 10 random from that difficulty
+    pool = pool.filter((q) => q.difficulty === difficulty)
+    return shuffle(pool).slice(0, QUIZ_LENGTH)
+  }
+
+  // Mixed mode — ramp difficulty: 3 easy → 4 medium → 3 hard (= 10 total)
   const easy   = shuffle(pool.filter((q) => q.difficulty === 1))
   const medium = shuffle(pool.filter((q) => q.difficulty === 2))
   const hard   = shuffle(pool.filter((q) => q.difficulty === 3))
-
-  // Ramp difficulty: 3 easy → 4 medium → 3 hard (= 10 total)
   return [...easy.slice(0, 3), ...medium.slice(0, 4), ...hard.slice(0, 3)]
 }
 
 export const useQuizStore = create<QuizState>((set, get) => ({
   phase: 'idle',
   category: 'all',
+  difficulty: 'mixed',
   deck: [],
   currentIndex: 0,
   selectedAnswer: null,
@@ -71,7 +78,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
   shieldUsed: false,
   challengeTarget: null,
 
-  start: (category = 'all', questionIds?: string[]) => {
+  start: (category = 'all', questionIds?: string[], difficulty: Difficulty | 'mixed' = 'mixed') => {
     let deck: QuizQuestion[]
     if (questionIds && questionIds.length > 0) {
       // Challenge mode — play the exact questions in exact order
@@ -79,11 +86,12 @@ export const useQuizStore = create<QuizState>((set, get) => ({
         .map((id) => quizQuestions.find((q) => q.id === id))
         .filter((q): q is QuizQuestion => q !== undefined)
     } else {
-      deck = buildDeck(category)
+      deck = buildDeck(category, difficulty)
     }
     set({
       phase: 'playing',
       category,
+      difficulty,
       deck,
       currentIndex: 0,
       selectedAnswer: null,
@@ -169,6 +177,7 @@ export const useQuizStore = create<QuizState>((set, get) => ({
 
   reset: () => set({
     phase: 'idle',
+    difficulty: 'mixed',
     deck: [],
     currentIndex: 0,
     selectedAnswer: null,

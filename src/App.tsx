@@ -6,6 +6,8 @@ import { Quiz } from './pages/Quiz'
 import { Leaderboard } from './pages/Leaderboard'
 import { Daily } from './pages/Daily'
 import { DailyLeaderboard } from './pages/DailyLeaderboard'
+import { XPToastContainer } from './components/XPToast'
+import { showStreakBonusToast } from './components/XPToast'
 import { supabase } from './lib/supabase'
 import { useAuthStore } from './store/authStore'
 import { useProgressStore } from './store/progressStore'
@@ -46,9 +48,27 @@ export default function App() {
     return () => subscription.unsubscribe()
   }, [setSession])
 
+  // Check login streak on app open (once per day)
+  useEffect(() => {
+    // Small delay so progress store has time to hydrate from localStorage
+    const timer = setTimeout(() => {
+      const result = useProgressStore.getState().checkLoginStreak()
+      if (result && result.bonusXP > 0) {
+        showStreakBonusToast(result.bonusXP, result.newStreak)
+      }
+      // Sync streak to Supabase if signed in
+      const { user } = useAuthStore.getState()
+      if (user) {
+        useProgressStore.getState().syncToSupabase()
+      }
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [])
+
   return (
     <div className="min-h-screen bg-gray-950">
       <NavBar />
+      <XPToastContainer />
       <main>
         <Routes>
           <Route path="/" element={<Home />} />

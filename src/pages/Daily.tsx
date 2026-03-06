@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useDailyStore, type DailyAnswerResult } from '../store/dailyStore'
 import { useAuthStore } from '../store/authStore'
+import { useProgressStore } from '../store/progressStore'
+import { showXPToast } from '../components/XPToast'
 
 // ── Style constants ────────────────────────────────────────────────────────────
 
@@ -498,6 +500,16 @@ export function Daily() {
   // moment phase becomes 'finished', so its effects never fire.
   useEffect(() => {
     if (phase === 'finished') {
+      // Award XP for daily challenge completion
+      const { score } = useDailyStore.getState()
+      const xpGain = Math.floor(score / 10)
+      if (xpGain > 0) {
+        const prevXP = useProgressStore.getState().totalXP
+        useProgressStore.getState().addXP(xpGain)
+        showXPToast(xpGain, prevXP)
+        // Sync XP to Supabase
+        useProgressStore.getState().syncToSupabase()
+      }
       submitCompletion()
     }
   }, [phase, submitCompletion])

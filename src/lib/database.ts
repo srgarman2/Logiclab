@@ -15,6 +15,8 @@ export type DbProfile = {
   total_xp: number
   streak_shields: number
   category_mastery: Record<QuizCategory, { correct: number; attempted: number }>
+  login_streak: number | null
+  last_login_date: string | null
 }
 
 export type DbQuizResult = {
