@@ -1,7 +1,9 @@
 -- Phase 3: Add username to weekly_leaderboard view
--- Recreates the view so username is visible for name resolution.
+-- Must DROP then CREATE because CREATE OR REPLACE VIEW cannot reorder columns.
 
-create or replace view public.weekly_leaderboard as
+drop view if exists public.weekly_leaderboard;
+
+create view public.weekly_leaderboard as
 select
   p.id,
   p.display_name,
