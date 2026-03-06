@@ -225,7 +225,7 @@ function PlayingView() {
   const {
     questions, currentIndex, score, streak, maxStreak,
     timeLeft, selectedAnswer, phase,
-    selectAnswer, nextQuestion, tick, submitCompletion,
+    selectAnswer, nextQuestion, tick,
   } = useDailyStore()
 
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
@@ -243,13 +243,6 @@ function PlayingView() {
     intervalRef.current = setInterval(() => tick(), 1000)
     return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
   }, [phase, isAnswered, currentIndex, tick])
-
-  // Submit on finish
-  useEffect(() => {
-    if (phase === 'finished') {
-      submitCompletion()
-    }
-  }, [phase, submitCompletion])
 
   if (!question) return null
 
@@ -403,13 +396,22 @@ export function Daily() {
   const {
     loading, error, phase, questions, alreadyCompleted,
     todayDate, challengeNumber, todayCategory,
-    fetchToday, startQuiz,
+    fetchToday, startQuiz, submitCompletion,
   } = useDailyStore()
   const user = useAuthStore((s) => s.user)
 
   useEffect(() => {
     fetchToday()
   }, [fetchToday])
+
+  // ── Submit when quiz finishes ─────────────────────────────────────────────
+  // Must live here (not in PlayingView) because PlayingView unmounts the
+  // moment phase becomes 'finished', so its effects never fire.
+  useEffect(() => {
+    if (phase === 'finished') {
+      submitCompletion()
+    }
+  }, [phase, submitCompletion])
 
   const catColor = CATEGORY_COLORS[todayCategory ?? ''] ?? '#6366F1'
   const catLabel = CATEGORY_LABELS[todayCategory ?? ''] ?? todayCategory
