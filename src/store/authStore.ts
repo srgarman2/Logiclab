@@ -8,7 +8,7 @@ type AuthState = {
   loading: boolean
   setSession: (session: Session | null) => void
   signInWithGoogle: () => Promise<void>
-  signInWithGitHub: () => Promise<void>
+  signInWithMagicLink: (email: string) => Promise<{ error?: string }>
   signOut: () => Promise<void>
 }
 
@@ -27,11 +27,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     })
   },
 
-  signInWithGitHub: async () => {
-    await supabase.auth.signInWithOAuth({
-      provider: 'github',
-      options: { redirectTo: window.location.origin },
+  signInWithMagicLink: async (email: string) => {
+    const { error } = await supabase.auth.signInWithOtp({
+      email: email.trim(),
+      options: { emailRedirectTo: window.location.origin },
     })
+    if (error) return { error: error.message }
+    return {}
   },
 
   signOut: async () => {
